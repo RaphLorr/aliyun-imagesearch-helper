@@ -1,0 +1,7 @@
+{
+  "name": "Aliyun ImageSearch Helper",
+  "description": "A professional image coordinate visualization tool. Upload images and precisely highlight regions using x1,y1,x2,y2 coordinates. Powered by Gemini for smart object detection.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

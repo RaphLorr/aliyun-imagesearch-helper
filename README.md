@@ -1,11 +1,44 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# Aliyun ImageSearch Helper - 专业图像坐标可视化工具
 
-  <h1>Built with AI Studio</h2>
+Aliyun ImageSearch Helper 是一款专为前端工程师、算法工程师及 UI 设计师打造的轻量级、高性能图像区域标注与坐标可视化工具。它可以根据您输入的坐标数据，实时在图片上绘制出精准的包围框。
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 核心功能
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+- **🚀 快速坐标标注**：支持 `x1, x2, y1, y2` 格式的坐标输入，即刻在图上生成对应的矩形区域。
+- **🧠 AI 智能检测**：集成 Google Gemini API。一键自动识别图片中的物体并提取其坐标。
+- **📏 双坐标系支持**：
+    - **像素模式 (PX)**：基于图片的原始分辨率进行绝对定位。
+    - **归一化模式 (0-1000)**：适配机器学习模型常用的 0-1000 比例定位。
+- **🔒 功能权限保护**：智能检测功能设有安全锁，输入正确的授权码后即可解锁使用。
+- **📋 智能解析**：能够自动识别文本框内的原始坐标字符串或符合规范的 JSON 数据格式。
+- **📱 响应式设计**：适配各种屏幕尺寸，提供专业的侧边控制栏与主视图布局。
 
-</div>
+## 坐标格式说明
+
+本工具采用以下坐标序列：
+`x1` (左侧起点), `x2` (右侧终点), `y1` (顶部起点), `y2` (底部终点)
+
+示例输入：
+```text
+263, 603, 364, 691
+```
+
+## 使用指南
+
+1. **上传图片**：点击左侧侧边栏的“选择图片”按钮。
+2. **输入坐标**：在文本框内粘贴坐标数据。
+    - 每行一组坐标，或者粘贴包含 `"region": "x1,x2,y1,y2"` 的 JSON 数据。
+3. **切换模式**：根据数据源类型，在右上角切换 **PX** 或 **0-1000** 模式。
+4. **AI 辅助**：点击“解锁智能检测功能”，输入授权码。
+5. **复制结果**：点击文本框右上角的复制图标，快速导出处理好的坐标。
+
+## 开发技术栈
+
+- **框架**：React 19
+- **样式**：Tailwind CSS
+- **图标**：Lucide React
+- **人工智能**：Google Gemini API
+
+---
+*Aliyun ImageSearch Helper - 让图像标注更简单。*
