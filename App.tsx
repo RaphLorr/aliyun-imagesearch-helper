@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Upload, Focus, Maximize2, Sparkles, Trash2, Copy, Check, Lock, X, AlertCircle } from 'lucide-react';
 import ImageCanvas from './components/ImageCanvas';
 import { BoundingBox, ImageData } from './types';
@@ -73,10 +73,14 @@ export const App: React.FC = () => {
   const [authError, setAuthError] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 新增：选中区域的索引，用于高亮显示
+  const [selectedBoxIndex, setSelectedBoxIndex] = useState<number | null>(null);
+  // 新增：反馈卡片复制成功的状态
+  const [boxCopyId, setBoxCopyId] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 强力解析器：支持 JSON 键值对提取和原始数值提取
   const parsedBoxes = useMemo(() => {
     const lines = manualInput.split('\n');
     const boxes: BoundingBox[] = [];
@@ -85,25 +89,28 @@ export const App: React.FC = () => {
       let content = line.trim();
       if (!content) return;
 
-      // 尝试匹配 "region": "x1,x2,y1,y2" 模式
       const regionMatch = content.match(/"region"\s*:\s*"([^"]+)"/);
       if (regionMatch) {
         content = regionMatch[1];
       }
 
-      // 提取所有数字，支持任何非数字字符分隔 (逗号, 空格, 引号等)
       const parts = content.match(/[-+]?[0-9]*\.?[0-9]+/g)?.map(Number) || [];
       
       if (parts.length >= 4) {
         boxes.push({ 
-          x1: parts[0], // Left
-          x2: parts[1], // Right
-          y1: parts[2], // Top
-          y2: parts[3]  // Bottom
+          x1: parts[0],
+          x2: parts[1],
+          y1: parts[2],
+          y2: parts[3]
         });
       }
     });
     return boxes;
+  }, [manualInput]);
+
+  // 当输入变化时，重置选中状态
+  useEffect(() => {
+    setSelectedBoxIndex(null);
   }, [manualInput]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,6 +172,15 @@ export const App: React.FC = () => {
     navigator.clipboard.writeText(manualInput);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 处理卡片点击：复制坐标并高亮
+  const handleBoxClick = (box: BoundingBox, index: number) => {
+    const coordString = `${Math.round(box.x1)},${Math.round(box.x2)},${Math.round(box.y1)},${Math.round(box.y2)}`;
+    navigator.clipboard.writeText(coordString);
+    setSelectedBoxIndex(index);
+    setBoxCopyId(index);
+    setTimeout(() => setBoxCopyId(null), 1500);
   };
 
   return (
@@ -259,33 +275,44 @@ export const App: React.FC = () => {
           </div>
           
           <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-900 min-h-[500px]">
-            <ImageCanvas image={image} boxes={parsedBoxes} isNormalized={isNormalized} />
+            <ImageCanvas image={image} boxes={parsedBoxes} isNormalized={isNormalized} highlightedIndex={selectedBoxIndex} />
           </div>
 
           {parsedBoxes.length > 0 && (
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-in slide-in-from-bottom-4 duration-500 pb-10">
                {parsedBoxes.map((box, idx) => (
-                 <div key={idx} className="bg-slate-900/40 border border-slate-800/60 rounded-xl p-4 group hover:border-blue-500/50 transition-all hover:bg-slate-900/80">
-                   <div className="flex items-center gap-2 mb-3">
-                     <span className="w-5 h-5 bg-blue-600/20 text-blue-500 text-[10px] font-bold rounded flex items-center justify-center ring-1 ring-blue-500/20">#{idx + 1}</span>
-                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Region Data</span>
+                 <div 
+                   key={idx} 
+                   onClick={() => handleBoxClick(box, idx)}
+                   className={`cursor-pointer bg-slate-900/40 border rounded-xl p-4 group transition-all hover:bg-slate-900/80 
+                     ${selectedBoxIndex === idx ? 'border-blue-500 ring-1 ring-blue-500/30 shadow-lg shadow-blue-500/10' : 'border-slate-800/60 hover:border-blue-500/50'}`}
+                 >
+                   <div className="flex items-center justify-between mb-3">
+                     <div className="flex items-center gap-2">
+                       <span className={`w-5 h-5 text-[10px] font-bold rounded flex items-center justify-center transition-colors 
+                         ${selectedBoxIndex === idx ? 'bg-blue-600 text-white' : 'bg-blue-600/20 text-blue-500 ring-1 ring-blue-500/20'}`}>
+                         #{idx + 1}
+                       </span>
+                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Region Data</span>
+                     </div>
+                     {boxCopyId === idx && <span className="text-[9px] text-green-500 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-right-2"><Check className="w-3 h-3" /> COPIED</span>}
                    </div>
                    <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                       <div className="space-y-0.5">
                         <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">X1 (Left)</p>
-                        <p className="text-xs font-mono text-blue-400">{box.x1}</p>
+                        <p className={`text-xs font-mono transition-colors ${selectedBoxIndex === idx ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'}`}>{box.x1}</p>
                       </div>
                       <div className="space-y-0.5">
                         <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">X2 (Right)</p>
-                        <p className="text-xs font-mono text-blue-400">{box.x2}</p>
+                        <p className={`text-xs font-mono transition-colors ${selectedBoxIndex === idx ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'}`}>{box.x2}</p>
                       </div>
                       <div className="space-y-0.5">
                         <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Y1 (Top)</p>
-                        <p className="text-xs font-mono text-green-400">{box.y1}</p>
+                        <p className={`text-xs font-mono transition-colors ${selectedBoxIndex === idx ? 'text-green-400' : 'text-slate-400 group-hover:text-green-400'}`}>{box.y1}</p>
                       </div>
                       <div className="space-y-0.5">
                         <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Y2 (Bottom)</p>
-                        <p className="text-xs font-mono text-green-400">{box.y2}</p>
+                        <p className={`text-xs font-mono transition-colors ${selectedBoxIndex === idx ? 'text-green-400' : 'text-slate-400 group-hover:text-green-400'}`}>{box.y2}</p>
                       </div>
                    </div>
                  </div>
