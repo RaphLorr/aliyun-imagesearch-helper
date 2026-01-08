@@ -101,7 +101,8 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, boxes, isNormalized, h
               <div className={`absolute -top-6 left-0 px-2 py-0.5 rounded-sm font-bold shadow-md whitespace-nowrap transition-colors flex items-center gap-1
                 ${isHighlighted ? 'bg-yellow-400 text-slate-900 z-40' : 'bg-red-600 text-white text-[9px]'}`}>
                 <span className="opacity-70">#</span>{index + 1}
-                {isHighlighted && <span className="text-[10px] ml-1 uppercase tracking-tighter">Selected</span>}
+                {box.label && <span className="ml-1 border-l border-white/20 pl-1 uppercase tracking-tighter">{box.label}</span>}
+                {isHighlighted && !box.label && <span className="text-[10px] ml-1 uppercase tracking-tighter">Selected</span>}
               </div>
             </div>
           );

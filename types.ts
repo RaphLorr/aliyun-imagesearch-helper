@@ -4,6 +4,7 @@ export interface BoundingBox {
   x2: number; // Right
   y1: number; // Top
   y2: number; // Bottom
+  label?: string; // 可选的标签名
 }
 
 export interface ImageData {

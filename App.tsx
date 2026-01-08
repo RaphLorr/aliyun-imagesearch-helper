@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Upload, Focus, Maximize2, Sparkles, Trash2, Copy, Check, Lock, X, AlertCircle } from 'lucide-react';
+import { Upload, Focus, Maximize2, Sparkles, Trash2, Copy, Check, Lock, X, AlertCircle, Tag } from 'lucide-react';
 import ImageCanvas from './components/ImageCanvas';
 import { BoundingBox, ImageData } from './types';
 import { detectObjects } from './services/geminiService';
@@ -64,7 +64,7 @@ const md5 = (string: string) => {
 
 export const App: React.FC = () => {
   const [image, setImage] = useState<ImageData | null>(null);
-  const [manualInput, setManualInput] = useState('{\n  "region": "263,603,364,691"\n}');
+  const [manualInput, setManualInput] = useState('{\n  "label": "demo",\n  "region": "263,603,364,691"\n}');
   const [isNormalized, setIsNormalized] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -74,41 +74,54 @@ export const App: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // 新增：选中区域的索引，用于高亮显示
   const [selectedBoxIndex, setSelectedBoxIndex] = useState<number | null>(null);
-  // 新增：反馈卡片复制成功的状态
   const [boxCopyId, setBoxCopyId] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parsedBoxes = useMemo(() => {
+    // 强大的解析逻辑：提取 region 数据并可选关联 label
     const lines = manualInput.split('\n');
     const boxes: BoundingBox[] = [];
     
+    // 我们需要处理可能跨行的标签和区域关联
+    // 如果存在 label 字段，它应该在 region 附近
+    let currentLabel: string | undefined = undefined;
+
     lines.forEach(line => {
       let content = line.trim();
       if (!content) return;
 
-      const regionMatch = content.match(/"region"\s*:\s*"([^"]+)"/);
-      if (regionMatch) {
-        content = regionMatch[1];
+      // 提取 label
+      const labelMatch = content.match(/"label"\s*:\s*"([^"]+)"/);
+      if (labelMatch) {
+        currentLabel = labelMatch[1];
       }
 
-      const parts = content.match(/[-+]?[0-9]*\.?[0-9]+/g)?.map(Number) || [];
+      // 提取 region
+      const regionMatch = content.match(/"region"\s*:\s*"([^"]+)"/);
+      const rawCoordsMatch = !regionMatch && content.match(/[-+]?[0-9]*\.?[0-9]+/g);
       
-      if (parts.length >= 4) {
-        boxes.push({ 
-          x1: parts[0],
-          x2: parts[1],
-          y1: parts[2],
-          y2: parts[3]
-        });
+      let finalContent = regionMatch ? regionMatch[1] : (rawCoordsMatch ? content : null);
+      
+      if (finalContent) {
+        const parts = finalContent.match(/[-+]?[0-9]*\.?[0-9]+/g)?.map(Number) || [];
+        if (parts.length >= 4) {
+          boxes.push({ 
+            x1: parts[0],
+            x2: parts[1],
+            y1: parts[2],
+            y2: parts[3],
+            label: currentLabel
+          });
+          // 使用后重置 label，防止污染下一个区域
+          currentLabel = undefined;
+        }
       }
     });
     return boxes;
   }, [manualInput]);
 
-  // 当输入变化时，重置选中状态
   useEffect(() => {
     setSelectedBoxIndex(null);
   }, [manualInput]);
@@ -157,7 +170,7 @@ export const App: React.FC = () => {
     try {
       const results = await detectObjects(image.url);
       const formatted = results.map(r => 
-        `{\n  "region": "${Math.round(r.box.x1)},${Math.round(r.box.x2)},${Math.round(r.box.y1)},${Math.round(r.box.y2)}"\n}`
+        `{\n  "label": "${r.label}",\n  "region": "${Math.round(r.box.x1)},${Math.round(r.box.x2)},${Math.round(r.box.y1)},${Math.round(r.box.y2)}"\n}`
       ).join('\n');
       setManualInput(prev => prev ? prev + '\n' + formatted : formatted);
       setIsNormalized(true);
@@ -174,7 +187,6 @@ export const App: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 处理卡片点击：复制坐标并高亮
   const handleBoxClick = (box: BoundingBox, index: number) => {
     const coordString = `${Math.round(box.x1)},${Math.round(box.x2)},${Math.round(box.y1)},${Math.round(box.y2)}`;
     navigator.clipboard.writeText(coordString);
@@ -222,7 +234,7 @@ export const App: React.FC = () => {
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
               spellCheck={false}
-              placeholder='可直接粘贴: {"region": "x1,x2,y1,y2"}'
+              placeholder='可支持 label 与 region 结构化数据'
               className="w-full h-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none text-blue-100 placeholder-slate-800"
             />
             <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -235,7 +247,7 @@ export const App: React.FC = () => {
             </div>
           </div>
           <div className="mt-2 text-[10px] text-slate-600 font-mono italic flex justify-between items-center px-1">
-            <span>支持 JSON 或 原始序列</span>
+            <span>支持包含 Label 的 JSON 对象</span>
             <span className="text-blue-500/50">已识别: {parsedBoxes.length} 个区域</span>
           </div>
         </section>
@@ -252,7 +264,7 @@ export const App: React.FC = () => {
             ) : (
               <>
                 {isAuthenticated ? <Sparkles className="w-5 h-5 text-yellow-300" /> : <Lock className="w-5 h-5 opacity-40" />}
-                <span>AI 智能识别物体</span>
+                <span>AI 智能识别物体 (包含标签)</span>
               </>
             )}
           </button>
@@ -264,7 +276,7 @@ export const App: React.FC = () => {
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Maximize2 className="w-5 h-5 text-blue-500" /> 画布预览 (x1, x2, y1, y2)
+              <Maximize2 className="w-5 h-5 text-blue-500" /> 画布预览
             </h2>
             {image && (
               <div className="flex gap-2">
@@ -294,6 +306,11 @@ export const App: React.FC = () => {
                          #{idx + 1}
                        </span>
                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Region Data</span>
+                       {box.label && (
+                         <span className="flex items-center gap-1 bg-green-950/30 text-green-400 text-[10px] px-2 py-0.5 rounded border border-green-500/20 font-bold">
+                           <Tag className="w-3 h-3" /> {box.label}
+                         </span>
+                       )}
                      </div>
                      {boxCopyId === idx && <span className="text-[9px] text-green-500 font-bold flex items-center gap-1 animate-in fade-in slide-in-from-right-2"><Check className="w-3 h-3" /> COPIED</span>}
                    </div>
